@@ -1,5 +1,6 @@
 from flask import Flask, render_template, Response
 import cv2
+import numpy as np
 from Detector import Detector
 
 app = Flask(__name__)
@@ -10,17 +11,16 @@ modelPath = "model_data/frozen_inference_graph.pb"
 classesPath = "model_data/coco.names"
 detector = Detector(None, configPath, modelPath, classesPath)
 
-def gen_frames():  
+def gen_frames():
     camera = cv2.VideoCapture(0)  # Use 0 for the default camera
 
     while True:
         success, frame = camera.read()
         if not success:
+            print("Failed to capture image")
             break
         else:
-            # Process the frame using the Detector class
-            detector.videoPath = None  # As we are using a live camera feed, no video file is needed
-            detector.net.setInput(cv2.dnn.blobFromImage(frame, scalefactor=1.0/127.5, size=(320, 320), mean=(127.5, 127.5, 127.5), swapRB=True))
+            # Detect objects in the frame using the detect method
             classLabelIDs, confidences, bboxs = detector.net.detect(frame, confThreshold=0.4)
 
             bboxs = list(bboxs)
@@ -44,6 +44,10 @@ def gen_frames():
                     cv2.putText(frame, displayText, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, classColor, 2)
 
             ret, buffer = cv2.imencode('.jpg', frame)
+            if not ret:
+                print("Failed to encode frame")
+                continue
+
             frame = buffer.tobytes()
 
             yield (b'--frame\r\n'
